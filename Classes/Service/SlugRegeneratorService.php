@@ -85,7 +85,6 @@ class SlugRegeneratorService implements SiteAwareInterface
     protected function getSlugHelper($useParentPrefix = false)
     {
         $fieldConfig = $GLOBALS['TCA']['pages']['columns']['slug']['config'];
-        $fieldConfig['generatorOptions']['fields'] = ['title'];
         $fieldConfig['generatorOptions']['prefixParentPageSlug'] = $useParentPrefix;
         return GeneralUtility::makeInstance(
             SlugHelper::class,

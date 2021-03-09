@@ -19,4 +19,29 @@ if (!defined ('TYPO3_MODE')) {
         $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['replacements']['/'] = '';
     }
 
+    $pagesFieldsForSlug = explode(',', (string)$config['pages_slugfields']);
+    if (!empty($pagesFieldsForSlug)) {
+        $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fields'] = [
+            $pagesFieldsForSlug
+        ];
+    }
+
+    $fields = [
+        'tx_cronsluggy_pathsegment' => [
+            'exclude' => 1,
+            'label' => 'LLL:EXT:cron_sluggy/Resources/Private/Language/locallang.xlf:pages.tx_cronsluggy_pathsegment',
+            'description' => 'LLL:EXT:cron_sluggy/Resources/Private/Language/locallang.xlf:pages.tx_cronsluggy_pathsegment.description',
+            'config' => [
+                'type' => 'input',
+                'eval' => 'trim'
+            ]
+        ],
+    ];
+
+    $showItems = ['--linebreak--', 'tx_cronsluggy_pathsegment'];
+
+    \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTCAcolumns('pages', $fields);
+    \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addFieldsToPalette('pages', 'title', implode(',', $showItems), 'after:slug');
+    \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addFieldsToPalette('pages', 'titleonly', implode(',', $showItems), 'after:slug');
+
 })();

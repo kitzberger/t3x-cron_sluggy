@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<xliff version="1.0">
+	<file target-language="en" datatype="plaintext" original="messages" product-name="cron_sluggy">
+		<header/>
+		<body>
+			<trans-unit id="pages.tx_cronsluggy_pathsegment">
+				<target>URL Pfadsegment überschreiben</target>
+			</trans-unit>
+			<trans-unit id="pages.tx_cronsluggy_pathsegment.description">
+				<target>Ein Pfadsegment für die URL, überschreibt den Slug der aus dem Seitentitel erzeugt wäre.</target>
+			</trans-unit>
+		</body>
+	</file>
+</xliff>
