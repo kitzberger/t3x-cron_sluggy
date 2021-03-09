@@ -157,9 +157,15 @@ class SlugRegeneratorService implements SiteAwareInterface
 
         // Prefix the path to the parents from our cache if required
         if (!$useParentPrefix && $this->slugCache[$row['pid']]) {
+            $cachedParent = $this->slugCache[$row['pid']];
             $slug = $this->slugCache[$row['pid']] . $slug;
         }
-        $this->slugCache[$row['uid']] = $slug === '/' ? '' : $slug;
+        // support b13/masi exclusions
+        if ((bool)$row['exclude_slug_for_subpages']) {
+            $this->slugCache[$row['uid']] = $cachedParent;
+        } else {
+            $this->slugCache[$row['uid']] = $slug === '/' ? '' : $slug;
+        }
 
         // Make sure it is unique
         $state = RecordStateFactory::forName('pages')
