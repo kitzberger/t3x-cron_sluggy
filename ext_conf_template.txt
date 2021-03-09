@@ -1,0 +1,8 @@
+# cat=basic; type=boolean; label=Remove "/" in slug segments (like RealURL did)
+slash_remove = 1
+
+# cat=basic; type=string; label=Use the following page fields for slug generation
+pages_slugfields = tx_cronsluggy_pathsegment,title
+
+# cat=basic; type=boolean; label=Add field (tx_cronsluggy_pathsegment) to override path segment (like in RealURL)
+enable_pathsegment = 1

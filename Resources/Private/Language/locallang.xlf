@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<xliff version="1.0">
+	<file source-language="en" datatype="plaintext" original="messages" product-name="cron_sluggy">
+		<header/>
+		<body>
+			<trans-unit id="pages.tx_cronsluggy_pathsegment">
+				<source>URL path segment override</source>
+			</trans-unit>
+			<trans-unit id="pages.tx_cronsluggy_pathsegment.description">
+				<source>An path segment to override the page name if required</source>
+			</trans-unit>
+		</body>
+	</file>
+</xliff>

@@ -1,8 +1,29 @@
 cron Sluggy
 ===========
 
-Regenerates Slugs for a whole subtree of pages, optionally generate
-redirect for changed slugs.
+Features:
+
+* Batch regeneration of page slugs CLI tool
+* Add an "URL path segment" field to overwrite the string that would be
+  generated from the page title (supports b13/masi exclude while doing that)
+* Option to remove slash ("/") from being added to a slug segment for a page
+
+Regenerates Slugs for a whole subtree of pages, optionally generate redirect
+for changed slugs.
+
+Installation
+------------
+
+Configure settings in Extension Configuration:
+
+* `slash_remove` (boolean): defaults to "1", if you want to remove slashes
+  from page url slugs
+* `enable_pathsegment` (boolean): defaults to "1" to add a new field to the
+  pages module where you can overwrite the URL segment for this page (like
+  RealURL used to have)
+* `pages_slugfields` (string): comma separated list of fields to consider
+  when creating the slug for a page (defaults to
+  `tx_cronsluggy_pathsegment,title`).
 
 Usage
 -----
