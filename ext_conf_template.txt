@@ -1,0 +1,2 @@
+# cat=basic; type=boolean; label=Remove "/" in slug segments (like RealURL did)
+slash_remove = 1
