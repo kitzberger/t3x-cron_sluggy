@@ -48,7 +48,7 @@ class SlugRegeneratorCommand extends Command implements LoggerAwareInterface
      * @param InputInterface $input
      * @param OutputInterface $output
      *
-     * @return int|null|void
+     * @return int 0 if everything went fine, or an exit code
      *
      * @throws SiteNotFoundException
      */
@@ -77,6 +77,8 @@ class SlugRegeneratorCommand extends Command implements LoggerAwareInterface
             $createRedirects
         );
         $migration->execute((int)$rootPage);
+
+        return Command::SUCCESS;
     }
 
 
