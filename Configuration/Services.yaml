@@ -1,0 +1,11 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Cron\CronSluggy\Command\SlugRegeneratorCommand:
+    tags:
+      - name: 'console.command'
+        command: 'sluggy:regenerate'
+        schedulable: false
