@@ -185,7 +185,7 @@ class SlugRegeneratorService implements SiteAwareInterface
         if (!$this->dryMode && $changedSlug) {
             // Do the actual database action of updating the slug and creating a redirect
             $this->updateSlug($row, $slug);
-            if ($this->createRedirects !== null) {
+            if ($this->createRedirects !== null && !empty($row['slug'])) {
                 $host = $this->site->getBase()->getHost();
                 $this->createRedirect($host, $row['slug'], $row['uid'], $this->createRedirects);
             }
