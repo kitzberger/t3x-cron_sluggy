@@ -161,7 +161,7 @@ class SlugRegeneratorService implements SiteAwareInterface
             $slug = $this->slugCache[$row['pid']] . $slug;
         }
         // support b13/masi exclusions
-        if ((bool)$row['exclude_slug_for_subpages']) {
+        if (isset($row['exclude_slug_for_subpages']) && (bool)$row['exclude_slug_for_subpages']) {
             $this->slugCache[$row['uid']] = $cachedParent;
         } else {
             $this->slugCache[$row['uid']] = $slug === '/' ? '' : $slug;
