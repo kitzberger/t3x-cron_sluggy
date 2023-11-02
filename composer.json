@@ -1,8 +1,8 @@
 {
-  "name": "cron/cron-sluggy",
+  "name": "cron-eu/cron-sluggy",
   "type": "typo3-cms-extension",
   "description": "Slug re-generator",
-  "homepage": "https://git.cron.eu/cron/t3x-cron_sluggy",
+  "homepage": "https://github.com/cron-eu/t3x-cron_sluggy",
   "license": ["proprietary"],
   "require": {
     "typo3/cms-core": "^9.5 || ^10.4 || ^11.5",
