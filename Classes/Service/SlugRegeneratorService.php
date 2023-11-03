@@ -152,6 +152,11 @@ class SlugRegeneratorService implements SiteAwareInterface
     {
         $slugHelper = $this->getSlugHelper($useParentPrefix);
 
+        if (! $useParentPrefix) {
+            // a nested site root? Make sure we create a new slug, because default TYPO3 shortcuts this to a single '/'
+            $row['is_siteroot'] = 0;
+        }
+
         // Generate a raw new slug from the title
         $slug = $slugHelper->generate($row, $row['pid']);
 
