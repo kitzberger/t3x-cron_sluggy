@@ -33,7 +33,7 @@ if (!defined ('TYPO3_MODE')) {
             'description' => 'LLL:EXT:cron_sluggy/Resources/Private/Language/locallang.xlf:pages.tx_cronsluggy_pathsegment.description',
             'config' => [
                 'type' => 'input',
-                'eval' => 'trim'
+                'eval' => 'trim,uniqueInPid'
             ]
         ],
     ];
