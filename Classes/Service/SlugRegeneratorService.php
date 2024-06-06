@@ -161,6 +161,7 @@ class SlugRegeneratorService implements SiteAwareInterface
         $slug = $slugHelper->generate($row, $row['pid']);
 
         // Prefix the path to the parents from our cache if required
+        $cachedParent = '';
         if (!$useParentPrefix && $this->slugCache[$row['pid']]) {
             $cachedParent = $this->slugCache[$row['pid']];
             $slug = $this->slugCache[$row['pid']] . $slug;
