@@ -55,6 +55,10 @@ class SlugRegeneratorService implements SiteAwareInterface
      * @var int|null
      */
     protected $createRedirects;
+    /**
+     * @var bool
+     */
+    protected string $outputFormat;
 
     /**
      * @var Site
@@ -67,13 +71,15 @@ class SlugRegeneratorService implements SiteAwareInterface
      * @param LoggerInterface $logger
      * @param bool $dryMode
      * @param int $createRedirects
+     * @param string $outputFormat
      */
-    public function __construct(OutputInterface $output, LoggerInterface $logger, bool $dryMode, int $createRedirects)
+    public function __construct(OutputInterface $output, LoggerInterface $logger, bool $dryMode, int $createRedirects, string $outputFormat)
     {
         $this->logger = $logger;
         $this->output = $output;
         $this->dryMode = $dryMode;
         $this->createRedirects = $createRedirects;
+        $this->outputFormat = $outputFormat;
     }
 
     /**
@@ -181,12 +187,20 @@ class SlugRegeneratorService implements SiteAwareInterface
         // Is is changed??
         $changedSlug = ($row['slug'] !== $slug);
 
-        $this->output->writeln(sprintf("%s %s", str_repeat('*', $depth + 1), $row['uid']));
-        if ($changedSlug) {
-            $this->output->writeln(sprintf("  OLD: %s", $row['slug']));
-            $this->output->writeln(sprintf("  NEW: %s", $slug));
+        if ($this->outputFormat === 'csv') {
+            $this->output->writeln(sprintf('%s;%s;%s',
+                $row['uid'],
+                $row['slug'],
+                $changedSlug ? $slug : 'UNCHANGED',
+            ));
         } else {
-            $this->output->writeln(sprintf(" KEEP: %s", $row['slug']));
+            $this->output->writeln(sprintf("%s %s", str_repeat('*', $depth + 1), $row['uid']));
+            if ($changedSlug) {
+                $this->output->writeln(sprintf("  OLD: %s", $row['slug']));
+                $this->output->writeln(sprintf("  NEW: %s", $slug));
+            } else {
+                $this->output->writeln(sprintf(" KEEP: %s", $row['slug']));
+            }
         }
         if (!$this->dryMode && $changedSlug) {
             // Do the actual database action of updating the slug and creating a redirect
