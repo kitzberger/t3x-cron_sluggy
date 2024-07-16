@@ -194,7 +194,7 @@ class SlugRegeneratorService implements SiteAwareInterface
                 $changedSlug ? $slug : 'UNCHANGED',
             ));
         } else {
-            $this->output->writeln(sprintf("%s %s", str_repeat('*', $depth + 1), $row['uid']));
+            $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
             if ($changedSlug) {
                 $this->output->writeln(sprintf("  OLD: %s", $row['slug']));
                 $this->output->writeln(sprintf("  NEW: %s", $slug));
