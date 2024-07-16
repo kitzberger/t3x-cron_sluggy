@@ -57,7 +57,7 @@ class SlugRegeneratorCommand extends Command implements LoggerAwareInterface
     {
         $io = new SymfonyStyle($input, $output);
         $dryMode = (bool)$input->getOption('dry-mode');
-        $outputFormat = $input->getOption('format');
+        $outputFormat = $input->getOption('format') ?? 'plain';
         $redirectsOption = $input->getOption('redirects');
         if (false === $redirectsOption) {
             // option not passed
