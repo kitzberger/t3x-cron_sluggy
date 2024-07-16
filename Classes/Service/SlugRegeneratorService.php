@@ -2,6 +2,7 @@
 
 namespace Cron\CronSluggy\Service;
 
+use Cron\CronSluggy\ColorDiffer;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -188,10 +189,20 @@ class SlugRegeneratorService implements SiteAwareInterface
         $changedSlug = ($row['slug'] !== $slug);
 
         if ($this->outputFormat === 'csv') {
-            $this->output->writeln(sprintf('%s;%s;%s',
+            $this->output->writeln(sprintf('%s;%s;%s;%s',
                 $row['uid'],
-                $row['slug'],
+                $row['hidden'] ? 'hidden' : '',
                 $changedSlug ? $slug : 'UNCHANGED',
+                $row['slug'],
+            ));
+        } elseif ($this->outputFormat === 'html') {
+            $diff = new ColorDiffer();
+            $this->output->writeln(sprintf("<tr><td class='%s'>%s%s</td><td class='table-%s'>%s</td></tr>\n",
+                $row['hidden'] ? 'table-secondary' : '',
+                $row['uid'],
+                $row['hidden'] ? '<br>(hidden)' : '',
+                $changedSlug ? 'warning' : 'success',
+                $changedSlug ? sprintf('<span class="text-secondary">%s</span> <strong>→</strong> %s<br>%s', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
             ));
         } else {
             $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
@@ -271,8 +282,22 @@ class SlugRegeneratorService implements SiteAwareInterface
     public function execute(int $rootPage)
     {
         $this->site = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($rootPage);
-        $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
+        if ($this->outputFormat === 'csv') {
+            $this->output->writeln('uid;hidden;old_slug;new_slug');
+        } elseif ($this->outputFormat === 'html') {
+            $this->output->writeln('<html><head>');
+            #$this->output->writeln('<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>');
+            $this->output->writeln('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">');
+            #$this->output->writeln('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">');
+            $this->output->writeln('</head><body>');
+            $this->output->writeln('<table class="table"><tr><th>UID</th><th>Slug</th></tr>');
+        } else {
+            $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
+        }
         // Start recursion
         $this->executeOnPageTree($rootPage);
+        if ($this->outputFormat === 'html') {
+            $this->output->writeln("</table></body></html>\n");
+        }
     }
 }
