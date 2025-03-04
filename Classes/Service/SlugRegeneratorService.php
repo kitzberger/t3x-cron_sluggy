@@ -24,7 +24,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 class SlugRegeneratorService implements SiteAwareInterface
 {
-
     use SiteAccessorTrait;
 
     /**
@@ -95,7 +94,9 @@ class SlugRegeneratorService implements SiteAwareInterface
         $fieldConfig['generatorOptions']['prefixParentPageSlug'] = $useParentPrefix;
         return GeneralUtility::makeInstance(
             SlugHelper::class,
-            'pages', 'slug', $fieldConfig
+            'pages',
+            'slug',
+            $fieldConfig
         );
     }
 
@@ -190,7 +191,8 @@ class SlugRegeneratorService implements SiteAwareInterface
 
         if ($changedSlug || $this->output->isVerbose()) {
             if ($this->outputFormat === 'csv') {
-                $this->output->writeln(sprintf('%s;%s;%s;%s',
+                $this->output->writeln(sprintf(
+                    '%s;%s;%s;%s',
                     $row['uid'],
                     $row['hidden'] ? 'hidden' : '',
                     $changedSlug ? $slug : 'UNCHANGED',
@@ -198,7 +200,8 @@ class SlugRegeneratorService implements SiteAwareInterface
                 ));
             } elseif ($this->outputFormat === 'html') {
                 $diff = new ColorDiffer();
-                $this->output->writeln(sprintf("<tr><td class='%s'>%s%s</td><td class='table-%s'>%s</td></tr>\n",
+                $this->output->writeln(sprintf(
+                    "<tr><td class='%s'>%s%s</td><td class='table-%s'>%s</td></tr>\n",
                     $row['hidden'] ? 'table-secondary' : '',
                     $row['uid'],
                     $row['hidden'] ? '<br>(hidden)' : '',
@@ -296,6 +299,28 @@ class SlugRegeneratorService implements SiteAwareInterface
             $this->output->writeln('<table class="table"><tr><th>UID</th><th>Slug</th></tr>');
         } else {
             $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
+
+            $this->output->writeln('Configuration:');
+            $fieldSeparator = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fieldSeparator'] ?? '/';
+            $fields = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fields'] ?? [];
+            $replacements = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['replacements'] ?? [];
+            $postModifiers = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['postModifiers'] ?? [];
+            $slugFormat = [];
+            foreach ($fields as $field) {
+                if (is_array($field)) {
+                    $slugFormat[] = '{ ' . join(' // ', $field) . ' }';
+                } else {
+                    $slugFormat[] = '{ ' . $field . ' }';
+                }
+            }
+            $this->output->writeln('- Slug Format: ' . join(' ' . $fieldSeparator . ' ', $slugFormat));
+            foreach ($replacements as $char => $replace) {
+                $this->output->writeln(sprintf('- Replace "%s" with "%s"', $char, $replace));
+            }
+            foreach ($postModifiers as $postModifier) {
+                $this->output->writeln('- Post Modifier: ' . $postModifier);
+            }
+            $this->output->writeln('');
         }
         // Start recursion
         $this->executeOnPageTree($rootPage);
