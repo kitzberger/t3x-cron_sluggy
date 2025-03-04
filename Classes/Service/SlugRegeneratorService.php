@@ -188,31 +188,34 @@ class SlugRegeneratorService implements SiteAwareInterface
         // Is is changed??
         $changedSlug = ($row['slug'] !== $slug);
 
-        if ($this->outputFormat === 'csv') {
-            $this->output->writeln(sprintf('%s;%s;%s;%s',
-                $row['uid'],
-                $row['hidden'] ? 'hidden' : '',
-                $changedSlug ? $slug : 'UNCHANGED',
-                $row['slug'],
-            ));
-        } elseif ($this->outputFormat === 'html') {
-            $diff = new ColorDiffer();
-            $this->output->writeln(sprintf("<tr><td class='%s'>%s%s</td><td class='table-%s'>%s</td></tr>\n",
-                $row['hidden'] ? 'table-secondary' : '',
-                $row['uid'],
-                $row['hidden'] ? '<br>(hidden)' : '',
-                $changedSlug ? 'warning' : 'success',
-                $changedSlug ? sprintf('<span class="text-secondary">%s</span> <strong>→</strong> %s<br>%s', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
-            ));
-        } else {
-            $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
-            if ($changedSlug) {
-                $this->output->writeln(sprintf("  OLD: %s", $row['slug']));
-                $this->output->writeln(sprintf("  NEW: %s", $slug));
+        if ($changedSlug || $this->output->isVerbose()) {
+            if ($this->outputFormat === 'csv') {
+                $this->output->writeln(sprintf('%s;%s;%s;%s',
+                    $row['uid'],
+                    $row['hidden'] ? 'hidden' : '',
+                    $changedSlug ? $slug : 'UNCHANGED',
+                    $row['slug'],
+                ));
+            } elseif ($this->outputFormat === 'html') {
+                $diff = new ColorDiffer();
+                $this->output->writeln(sprintf("<tr><td class='%s'>%s%s</td><td class='table-%s'>%s</td></tr>\n",
+                    $row['hidden'] ? 'table-secondary' : '',
+                    $row['uid'],
+                    $row['hidden'] ? '<br>(hidden)' : '',
+                    $changedSlug ? 'warning' : 'success',
+                    $changedSlug ? sprintf('<span class="text-secondary">%s</span> <strong>→</strong> %s<br>%s', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
+                ));
             } else {
-                $this->output->writeln(sprintf(" KEEP: %s", $row['slug']));
+                $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
+                if ($changedSlug) {
+                    $this->output->writeln(sprintf("  OLD: %s", $row['slug']));
+                    $this->output->writeln(sprintf("  NEW: %s", $slug));
+                } else {
+                    $this->output->writeln(sprintf(" KEEP: %s", $row['slug']));
+                }
             }
         }
+
         if (!$this->dryMode && $changedSlug) {
             // Do the actual database action of updating the slug and creating a redirect
             $this->updateSlug($row, $slug);
