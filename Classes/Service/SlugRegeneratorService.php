@@ -5,15 +5,18 @@ namespace Cron\CronSluggy\Service;
 use Cron\CronSluggy\ColorDiffer;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\Model\RecordStateFactory;
 use TYPO3\CMS\Core\DataHandling\SlugHelper;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Routing\Aspect\SiteAccessorTrait;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteAwareInterface;
 use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -169,17 +172,11 @@ class SlugRegeneratorService implements SiteAwareInterface
         $slug = $slugHelper->generate($row, $row['pid']);
 
         // Prefix the path to the parents from our cache if required
-        $cachedParent = '';
-        if (!$useParentPrefix && $this->slugCache[$row['pid']]) {
-            $cachedParent = $this->slugCache[$row['pid']];
+        if (!$useParentPrefix && isset($this->slugCache[$row['pid']])) {
             $slug = $this->slugCache[$row['pid']] . $slug;
         }
-        // support b13/masi exclusions
-        if (isset($row['exclude_slug_for_subpages']) && (bool)$row['exclude_slug_for_subpages']) {
-            $this->slugCache[$row['uid']] = $cachedParent;
-        } else {
-            $this->slugCache[$row['uid']] = $slug === '/' ? '' : $slug;
-        }
+
+        $this->cacheSlugForPage($slug, $row);
 
         // Make sure it is unique
         $state = RecordStateFactory::forName('pages')
@@ -288,6 +285,7 @@ class SlugRegeneratorService implements SiteAwareInterface
     public function execute(int $rootPage)
     {
         $this->site = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($rootPage);
+
         if ($this->outputFormat === 'csv') {
             $this->output->writeln('uid;hidden;old_slug;new_slug');
         } elseif ($this->outputFormat === 'html') {
@@ -322,10 +320,50 @@ class SlugRegeneratorService implements SiteAwareInterface
             }
             $this->output->writeln('');
         }
+
+        if ($rootPage !== $this->site->getRootPageId()) {
+            // Prefill slug cache
+            $additionalFields = [];
+            if (ExtensionManagementUtility::isLoaded('masi')) {
+                $additionalFields[] = 'exclude_slug_for_subpages';
+            }
+            $rootline = BackendUtility::BEgetRootLine($rootPage, '', false, $additionalFields);
+            $rootline = array_reverse($rootline);
+            foreach ($rootline as $page) {
+                if ($page['uid']) {
+                    $this->cacheSlugForPage($page['slug'], $page);
+                }
+            }
+        }
+
         // Start recursion
         $this->executeOnPageTree($rootPage);
         if ($this->outputFormat === 'html') {
             $this->output->writeln("</table></body></html>\n");
+        }
+    }
+
+    private function cacheSlugForPage(string $slug, array $row): void
+    {
+        // support b13/masi exclusions
+        if (isset($row['exclude_slug_for_subpages'])) {
+            if ((bool)$row['exclude_slug_for_subpages']) {
+                $this->slugCache[$row['uid']] = $this->slugCache[$row['pid']];
+            } else {
+                $this->slugCache[$row['uid']] = $slug === '/' ? '' : $slug;
+            }
+        } else {
+            // support doktype exclusion of TYPO3
+            if (in_array($row['doktype'], [
+                PageRepository::DOKTYPE_SPACER,
+                PageRepository::DOKTYPE_RECYCLER,
+                PageRepository::DOKTYPE_SYSFOLDER,
+            ])) {
+                // skip this slug and use the parent pages slugs
+                $this->slugCache[$row['uid']] = $this->slugCache[$row['pid']];
+            } else {
+                $this->slugCache[$row['uid']] = $slug === '/' ? '' : $slug;
+            }
         }
     }
 }
