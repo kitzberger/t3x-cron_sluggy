@@ -288,6 +288,21 @@ class SlugRegeneratorService implements SiteAwareInterface
     public function execute(int $rootPage)
     {
         $this->site = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($rootPage);
+
+        $fieldSeparator = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fieldSeparator'] ?? '/';
+        $fields = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fields'] ?? [];
+        $replacements = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['replacements'] ?? [];
+        $postModifiers = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['postModifiers'] ?? [];
+
+        $slugFormat = [];
+        foreach ($fields as $field) {
+            if (is_array($field)) {
+                $slugFormat[] = '{ ' . join(' // ', $field) . ' }';
+            } else {
+                $slugFormat[] = '{ ' . $field . ' }';
+            }
+        }
+
         if ($this->outputFormat === 'csv') {
             $this->output->writeln('uid;hidden;old_slug;new_slug');
         } elseif ($this->outputFormat === 'html') {
@@ -296,23 +311,19 @@ class SlugRegeneratorService implements SiteAwareInterface
             $this->output->writeln('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">');
             #$this->output->writeln('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">');
             $this->output->writeln('</head><body>');
-            $this->output->writeln('<table class="table"><tr><th>UID</th><th>Slug</th></tr>');
+            $this->output->writeln(sprintf('<h1>Site: %s (%s)</h1>', $this->site->getIdentifier(), (string)$this->site->getBase()));
+            $this->output->writeln('<h4>Configuration</h4><ul>');
+            $this->output->writeln('<li>Slug Format: <code>' . join(' ' . $fieldSeparator . ' ', $slugFormat) . '</code></li>');
+            foreach ($replacements as $char => $replace) {
+                $this->output->writeln(sprintf('<li>Replace <code>%s</code> with <code>%s</code>', $char, $replace) . '</li>');
+            }
+            foreach ($postModifiers as $postModifier) {
+                $this->output->writeln('<li>Post Modifier: <code>' . $postModifier . '</code></li>');
+            }
+            $this->output->writeln('</ul><table class="table"><tr><th>UID</th><th>Slug</th></tr>');
         } else {
             $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
-
             $this->output->writeln('Configuration:');
-            $fieldSeparator = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fieldSeparator'] ?? '/';
-            $fields = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fields'] ?? [];
-            $replacements = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['replacements'] ?? [];
-            $postModifiers = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['postModifiers'] ?? [];
-            $slugFormat = [];
-            foreach ($fields as $field) {
-                if (is_array($field)) {
-                    $slugFormat[] = '{ ' . join(' // ', $field) . ' }';
-                } else {
-                    $slugFormat[] = '{ ' . $field . ' }';
-                }
-            }
             $this->output->writeln('- Slug Format: ' . join(' ' . $fieldSeparator . ' ', $slugFormat));
             foreach ($replacements as $char => $replace) {
                 $this->output->writeln(sprintf('- Replace "%s" with "%s"', $char, $replace));
@@ -322,8 +333,10 @@ class SlugRegeneratorService implements SiteAwareInterface
             }
             $this->output->writeln('');
         }
+
         // Start recursion
         $this->executeOnPageTree($rootPage);
+
         if ($this->outputFormat === 'html') {
             $this->output->writeln("</table></body></html>\n");
         }
