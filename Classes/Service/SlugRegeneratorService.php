@@ -206,7 +206,7 @@ class SlugRegeneratorService implements SiteAwareInterface
                     $row['uid'],
                     $row['hidden'] ? '<br>(hidden)' : '',
                     $changedSlug ? 'warning' : 'success',
-                    $changedSlug ? sprintf('<span class="text-secondary">%s</span> <strong>→</strong> %s<br>%s', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
+                    $changedSlug ? sprintf('<span title="%s -&gt; %s">%s</span>', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
                 ));
             } else {
                 $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
