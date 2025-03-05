@@ -5,10 +5,11 @@ namespace Cron\CronSluggy\Service;
 use Cron\CronSluggy\ColorDiffer;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\Model\RecordStateFactory;
 use TYPO3\CMS\Core\DataHandling\SlugHelper;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Routing\Aspect\SiteAccessorTrait;
 use TYPO3\CMS\Core\Site\Entity\Site;
@@ -201,10 +202,20 @@ class SlugRegeneratorService implements SiteAwareInterface
             } elseif ($this->outputFormat === 'html') {
                 $diff = new ColorDiffer();
                 $this->output->writeln(sprintf(
-                    "<tr><td class='%s'>%s%s</td><td class='table-%s'>%s</td></tr>\n",
+                    "<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td class='table-%s'>%s</td></tr>\n",
                     $row['hidden'] ? 'table-secondary' : '',
                     $row['uid'],
-                    $row['hidden'] ? '<br>(hidden)' : '',
+                    match ($row['doktype']) {
+                        PageRepository::DOKTYPE_DEFAULT => '',
+                        PageRepository::DOKTYPE_LINK => 'External link',
+                        PageRepository::DOKTYPE_SHORTCUT => 'Shortcut',
+                        PageRepository::DOKTYPE_BE_USER_SECTION => 'BE user section',
+                        PageRepository::DOKTYPE_MOUNTPOINT => 'Mountpoint',
+                        PageRepository::DOKTYPE_SPACER => 'Spacer',
+                        PageRepository::DOKTYPE_SYSFOLDER => 'Folder',
+                        PageRepository::DOKTYPE_RECYCLER => 'Recycler',
+                    },
+                    $row['hidden'] ? 'hidden' : '',
                     $changedSlug ? 'warning' : 'success',
                     $changedSlug ? sprintf('<span title="%s -&gt; %s">%s</span>', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
                 ));
@@ -320,7 +331,7 @@ class SlugRegeneratorService implements SiteAwareInterface
             foreach ($postModifiers as $postModifier) {
                 $this->output->writeln('<li>Post Modifier: <code>' . $postModifier . '</code></li>');
             }
-            $this->output->writeln('</ul><table class="table"><tr><th>UID</th><th>Slug</th></tr>');
+            $this->output->writeln('</ul><table class="table"><tr><th>UID</th><th>Type</th><th>Hidden?</th><th>Slug</th></tr>');
         } else {
             $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
             $this->output->writeln('Configuration:');
