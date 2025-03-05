@@ -142,7 +142,9 @@ class SlugRegeneratorService implements SiteAwareInterface
         // Add the redirect record
         $connRedirects->insert('sys_redirect', $redirectRecord);
 
-        $this->output->writeln(sprintf('Creating redirect from %s to %s', $path, $target));
+        if ($this->outputFormat === 'plain') {
+            $this->output->writeln(sprintf('Creating redirect from %s to %s', $path, $target));
+        }
     }
 
     /**
@@ -186,6 +188,21 @@ class SlugRegeneratorService implements SiteAwareInterface
         // Is is changed??
         $changedSlug = ($row['slug'] !== $slug);
 
+        if (!$this->dryMode && $changedSlug) {
+            // Do the actual database action of updating the slug and creating a redirect
+            $this->updateSlug($row, $slug);
+            if ($this->createRedirects !== null && !empty($row['slug'])) {
+                $host = $this->site->getBase()->getHost();
+                $port = $this->site->getBase()->getPort();
+                if ($port) {
+                    $host .= ':' . $port;
+                }
+                $path = $this->site->getBase()->getPath();
+                $sourcePath =  '/' . trim($path, '/') . '/' . ltrim($row['slug'], '/');
+                $this->createRedirect($host, $sourcePath, $row['uid'], $this->createRedirects);
+            }
+        }
+
         if ($changedSlug || $this->output->isVerbose()) {
             if ($this->outputFormat === 'csv') {
                 $this->output->writeln(sprintf(
@@ -198,7 +215,7 @@ class SlugRegeneratorService implements SiteAwareInterface
             } elseif ($this->outputFormat === 'html') {
                 $diff = new ColorDiffer();
                 $this->output->writeln(sprintf(
-                    "<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td class='table-%s'>%s</td></tr>\n",
+                    "<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td class='table-%s'>%s</td><td>%s</td></tr>\n",
                     $row['hidden'] ? 'table-secondary' : '',
                     $row['uid'],
                     match ($row['doktype']) {
@@ -213,7 +230,21 @@ class SlugRegeneratorService implements SiteAwareInterface
                     },
                     $row['hidden'] ? 'hidden' : '',
                     $changedSlug ? 'warning' : 'success',
-                    $changedSlug ? sprintf('<span title="%s -&gt; %s">%s</span>', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
+                    $changedSlug
+                        ? sprintf(
+                            '<span title="%s -&gt; %s">%s</span>',
+                            $row['slug'],
+                            $slug,
+                            $diff->getDifference($row['slug'], $slug)
+                        )
+                        : $slug,
+                    $changedSlug && $this->createRedirects
+                        ? sprintf(
+                            '<a href="%s">%s</a>',
+                            rtrim((string)$this->site->getBase(), '/') . '/' . ltrim($row['slug'], '/'),
+                            $sourcePath
+                        )
+                        : ''
                 ));
             } else {
                 $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
@@ -223,15 +254,6 @@ class SlugRegeneratorService implements SiteAwareInterface
                 } else {
                     $this->output->writeln(sprintf(" KEEP: %s", $row['slug']));
                 }
-            }
-        }
-
-        if (!$this->dryMode && $changedSlug) {
-            // Do the actual database action of updating the slug and creating a redirect
-            $this->updateSlug($row, $slug);
-            if ($this->createRedirects !== null && !empty($row['slug'])) {
-                $host = $this->site->getBase()->getHost();
-                $this->createRedirect($host, $row['slug'], $row['uid'], $this->createRedirects);
             }
         }
     }
@@ -327,7 +349,7 @@ class SlugRegeneratorService implements SiteAwareInterface
             foreach ($postModifiers as $postModifier) {
                 $this->output->writeln('<li>Post Modifier: <code>' . $postModifier . '</code></li>');
             }
-            $this->output->writeln('</ul><table class="table"><tr><th>UID</th><th>Type</th><th>Hidden?</th><th>Slug</th></tr>');
+            $this->output->writeln('</ul><table class="table"><tr><th>UID</th><th>Type</th><th>Hidden?</th><th>Slug</th><th>Redirect</th></tr>');
         } else {
             $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
             $this->output->writeln('Configuration:');
