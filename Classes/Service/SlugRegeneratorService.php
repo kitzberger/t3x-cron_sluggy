@@ -198,12 +198,22 @@ class SlugRegeneratorService implements SiteAwareInterface
             } elseif ($this->outputFormat === 'html') {
                 $diff = new ColorDiffer();
                 $this->output->writeln(sprintf(
-                    "<tr><td class='%s'>%s%s</td><td class='table-%s'>%s</td></tr>\n",
+                    "<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td class='table-%s'>%s</td></tr>\n",
                     $row['hidden'] ? 'table-secondary' : '',
                     $row['uid'],
-                    $row['hidden'] ? '<br>(hidden)' : '',
+                    match ($row['doktype']) {
+                        PageRepository::DOKTYPE_DEFAULT => '',
+                        PageRepository::DOKTYPE_LINK => 'External link',
+                        PageRepository::DOKTYPE_SHORTCUT => 'Shortcut',
+                        PageRepository::DOKTYPE_BE_USER_SECTION => 'BE user section',
+                        PageRepository::DOKTYPE_MOUNTPOINT => 'Mountpoint',
+                        PageRepository::DOKTYPE_SPACER => 'Spacer',
+                        PageRepository::DOKTYPE_SYSFOLDER => 'Folder',
+                        PageRepository::DOKTYPE_RECYCLER => 'Recycler',
+                    },
+                    $row['hidden'] ? 'hidden' : '',
                     $changedSlug ? 'warning' : 'success',
-                    $changedSlug ? sprintf('<span class="text-secondary">%s</span> <strong>→</strong> %s<br>%s', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
+                    $changedSlug ? sprintf('<span title="%s -&gt; %s">%s</span>', $row['slug'], $slug, $diff->getDifference($row['slug'], $slug)) : $slug
                 ));
             } else {
                 $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
@@ -286,6 +296,20 @@ class SlugRegeneratorService implements SiteAwareInterface
     {
         $this->site = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($rootPage);
 
+        $fieldSeparator = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fieldSeparator'] ?? '/';
+        $fields = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fields'] ?? [];
+        $replacements = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['replacements'] ?? [];
+        $postModifiers = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['postModifiers'] ?? [];
+
+        $slugFormat = [];
+        foreach ($fields as $field) {
+            if (is_array($field)) {
+                $slugFormat[] = '{ ' . join(' // ', $field) . ' }';
+            } else {
+                $slugFormat[] = '{ ' . $field . ' }';
+            }
+        }
+
         if ($this->outputFormat === 'csv') {
             $this->output->writeln('uid;hidden;old_slug;new_slug');
         } elseif ($this->outputFormat === 'html') {
@@ -294,23 +318,19 @@ class SlugRegeneratorService implements SiteAwareInterface
             $this->output->writeln('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">');
             #$this->output->writeln('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">');
             $this->output->writeln('</head><body>');
-            $this->output->writeln('<table class="table"><tr><th>UID</th><th>Slug</th></tr>');
+            $this->output->writeln(sprintf('<h1>Site: %s (%s)</h1>', $this->site->getIdentifier(), (string)$this->site->getBase()));
+            $this->output->writeln('<h4>Configuration</h4><ul>');
+            $this->output->writeln('<li>Slug Format: <code>' . join(' ' . $fieldSeparator . ' ', $slugFormat) . '</code></li>');
+            foreach ($replacements as $char => $replace) {
+                $this->output->writeln(sprintf('<li>Replace <code>%s</code> with <code>%s</code>', $char, $replace) . '</li>');
+            }
+            foreach ($postModifiers as $postModifier) {
+                $this->output->writeln('<li>Post Modifier: <code>' . $postModifier . '</code></li>');
+            }
+            $this->output->writeln('</ul><table class="table"><tr><th>UID</th><th>Type</th><th>Hidden?</th><th>Slug</th></tr>');
         } else {
             $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
-
             $this->output->writeln('Configuration:');
-            $fieldSeparator = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fieldSeparator'] ?? '/';
-            $fields = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fields'] ?? [];
-            $replacements = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['replacements'] ?? [];
-            $postModifiers = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['postModifiers'] ?? [];
-            $slugFormat = [];
-            foreach ($fields as $field) {
-                if (is_array($field)) {
-                    $slugFormat[] = '{ ' . join(' // ', $field) . ' }';
-                } else {
-                    $slugFormat[] = '{ ' . $field . ' }';
-                }
-            }
             $this->output->writeln('- Slug Format: ' . join(' ' . $fieldSeparator . ' ', $slugFormat));
             foreach ($replacements as $char => $replace) {
                 $this->output->writeln(sprintf('- Replace "%s" with "%s"', $char, $replace));
@@ -338,6 +358,7 @@ class SlugRegeneratorService implements SiteAwareInterface
 
         // Start recursion
         $this->executeOnPageTree($rootPage);
+
         if ($this->outputFormat === 'html') {
             $this->output->writeln("</table></body></html>\n");
         }
