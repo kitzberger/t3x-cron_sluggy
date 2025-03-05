@@ -140,7 +140,9 @@ class SlugRegeneratorService implements SiteAwareInterface
         // Add the redirect record
         $connRedirects->insert('sys_redirect', $redirectRecord);
 
-        $this->output->writeln(sprintf('Creating redirect from %s to %s', $path, $target));
+        if ($this->outputFormat === 'plain') {
+            $this->output->writeln(sprintf('Creating redirect from %s to %s', $path, $target));
+        }
     }
 
     /**
