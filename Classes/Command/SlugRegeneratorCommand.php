@@ -37,7 +37,7 @@ class SlugRegeneratorCommand extends Command implements LoggerAwareInterface
         $this->setDescription($this->commandDescription)
             ->setHelp($this->commandHelp)
             ->addOption('dry-mode','-d', InputOption::VALUE_NONE, 'do not change anything')
-            ->addOption('csv','-c', InputOption::VALUE_NONE, 'output in csv format')
+            ->addOption('format','-f', InputOption::VALUE_REQUIRED, 'output format (csv, html, plain). plain is the default')
             ->addOption('redirects','-r', InputOption::VALUE_OPTIONAL, 'create redirects for changed slugs with this TTL in days', 30)
             ->addArgument('root-page', InputArgument::REQUIRED)
         ;
@@ -57,7 +57,7 @@ class SlugRegeneratorCommand extends Command implements LoggerAwareInterface
     {
         $io = new SymfonyStyle($input, $output);
         $dryMode = (bool)$input->getOption('dry-mode');
-        $outputFormat = (bool)$input->getOption('csv') ? 'csv' : 'plain';
+        $outputFormat = $input->getOption('format') ?? 'plain';
         $redirectsOption = $input->getOption('redirects');
         if (false === $redirectsOption) {
             // option not passed
