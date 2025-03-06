@@ -2,12 +2,14 @@
 
 namespace Cron\CronSluggy\Service;
 
+use Cron\CronSluggy\ColorDiffer;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\Model\RecordStateFactory;
 use TYPO3\CMS\Core\DataHandling\SlugHelper;
+use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Routing\Aspect\SiteAccessorTrait;
 use TYPO3\CMS\Core\Site\Entity\Site;
@@ -23,7 +25,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 class SlugRegeneratorService implements SiteAwareInterface
 {
-
     use SiteAccessorTrait;
 
     /**
@@ -94,7 +95,9 @@ class SlugRegeneratorService implements SiteAwareInterface
         $fieldConfig['generatorOptions']['prefixParentPageSlug'] = $useParentPrefix;
         return GeneralUtility::makeInstance(
             SlugHelper::class,
-            'pages', 'slug', $fieldConfig
+            'pages',
+            'slug',
+            $fieldConfig
         );
     }
 
@@ -137,7 +140,9 @@ class SlugRegeneratorService implements SiteAwareInterface
         // Add the redirect record
         $connRedirects->insert('sys_redirect', $redirectRecord);
 
-        $this->output->writeln(sprintf('Creating redirect from %s to %s', $path, $target));
+        if ($this->outputFormat === 'plain') {
+            $this->output->writeln(sprintf('Creating redirect from %s to %s', $path, $target));
+        }
     }
 
     /**
@@ -187,27 +192,72 @@ class SlugRegeneratorService implements SiteAwareInterface
         // Is is changed??
         $changedSlug = ($row['slug'] !== $slug);
 
-        if ($this->outputFormat === 'csv') {
-            $this->output->writeln(sprintf('%s;%s;%s',
-                $row['uid'],
-                $row['slug'],
-                $changedSlug ? $slug : 'UNCHANGED',
-            ));
-        } else {
-            $this->output->writeln(sprintf("%s %s", str_repeat('*', $depth + 1), $row['uid']));
-            if ($changedSlug) {
-                $this->output->writeln(sprintf("  OLD: %s", $row['slug']));
-                $this->output->writeln(sprintf("  NEW: %s", $slug));
-            } else {
-                $this->output->writeln(sprintf(" KEEP: %s", $row['slug']));
-            }
-        }
         if (!$this->dryMode && $changedSlug) {
             // Do the actual database action of updating the slug and creating a redirect
             $this->updateSlug($row, $slug);
             if ($this->createRedirects !== null && !empty($row['slug'])) {
                 $host = $this->site->getBase()->getHost();
-                $this->createRedirect($host, $row['slug'], $row['uid'], $this->createRedirects);
+                $port = $this->site->getBase()->getPort();
+                if ($port) {
+                    $host .= ':' . $port;
+                }
+                $path = $this->site->getBase()->getPath();
+                $sourcePath =  '/' . trim($path, '/') . '/' . ltrim($row['slug'], '/');
+                $this->createRedirect($host, $sourcePath, $row['uid'], $this->createRedirects);
+            }
+        }
+
+        if ($changedSlug || $this->output->isVerbose()) {
+            if ($this->outputFormat === 'csv') {
+                $this->output->writeln(sprintf(
+                    '%s;%s;%s;%s',
+                    $row['uid'],
+                    $row['hidden'] ? 'hidden' : '',
+                    $changedSlug ? $slug : 'UNCHANGED',
+                    $row['slug'],
+                ));
+            } elseif ($this->outputFormat === 'html') {
+                $diff = new ColorDiffer();
+                $this->output->writeln(sprintf(
+                    "<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td class='table-%s'>%s</td><td>%s</td></tr>\n",
+                    $row['hidden'] ? 'table-secondary' : '',
+                    $row['uid'],
+                    match ($row['doktype']) {
+                        PageRepository::DOKTYPE_DEFAULT => '',
+                        PageRepository::DOKTYPE_LINK => 'External link',
+                        PageRepository::DOKTYPE_SHORTCUT => 'Shortcut',
+                        PageRepository::DOKTYPE_BE_USER_SECTION => 'BE user section',
+                        PageRepository::DOKTYPE_MOUNTPOINT => 'Mountpoint',
+                        PageRepository::DOKTYPE_SPACER => 'Spacer',
+                        PageRepository::DOKTYPE_SYSFOLDER => 'Folder',
+                        PageRepository::DOKTYPE_RECYCLER => 'Recycler',
+                    },
+                    $row['hidden'] ? 'hidden' : '',
+                    $changedSlug ? 'warning' : 'success',
+                    $changedSlug
+                        ? sprintf(
+                            '<span title="%s -&gt; %s">%s</span>',
+                            $row['slug'],
+                            $slug,
+                            $diff->getDifference($row['slug'], $slug)
+                        )
+                        : $slug,
+                    $changedSlug && $this->createRedirects
+                        ? sprintf(
+                            '<a href="%s">%s</a>',
+                            rtrim((string)$this->site->getBase(), '/') . '/' . ltrim($row['slug'], '/'),
+                            $sourcePath
+                        )
+                        : ''
+                ));
+            } else {
+                $this->output->writeln(sprintf("%s %s%s", str_repeat('*', $depth + 1), $row['uid'], $row['hidden'] ? ' (HIDDEN)' : ''));
+                if ($changedSlug) {
+                    $this->output->writeln(sprintf("  OLD: %s", $row['slug']));
+                    $this->output->writeln(sprintf("  NEW: %s", $slug));
+                } else {
+                    $this->output->writeln(sprintf(" KEEP: %s", $row['slug']));
+                }
             }
         }
     }
@@ -271,8 +321,57 @@ class SlugRegeneratorService implements SiteAwareInterface
     public function execute(int $rootPage)
     {
         $this->site = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($rootPage);
-        $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
+
+        $fieldSeparator = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fieldSeparator'] ?? '/';
+        $fields = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['fields'] ?? [];
+        $replacements = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['replacements'] ?? [];
+        $postModifiers = $GLOBALS['TCA']['pages']['columns']['slug']['config']['generatorOptions']['postModifiers'] ?? [];
+
+        $slugFormat = [];
+        foreach ($fields as $field) {
+            if (is_array($field)) {
+                $slugFormat[] = '{ ' . join(' // ', $field) . ' }';
+            } else {
+                $slugFormat[] = '{ ' . $field . ' }';
+            }
+        }
+
+        if ($this->outputFormat === 'csv') {
+            $this->output->writeln('uid;hidden;old_slug;new_slug');
+        } elseif ($this->outputFormat === 'html') {
+            $this->output->writeln('<html><head>');
+            #$this->output->writeln('<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>');
+            $this->output->writeln('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">');
+            #$this->output->writeln('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">');
+            $this->output->writeln('</head><body>');
+            $this->output->writeln(sprintf('<h1>Site: %s (%s)</h1>', $this->site->getIdentifier(), (string)$this->site->getBase()));
+            $this->output->writeln('<h4>Configuration</h4><ul>');
+            $this->output->writeln('<li>Slug Format: <code>' . join(' ' . $fieldSeparator . ' ', $slugFormat) . '</code></li>');
+            foreach ($replacements as $char => $replace) {
+                $this->output->writeln(sprintf('<li>Replace <code>%s</code> with <code>%s</code>', $char, $replace) . '</li>');
+            }
+            foreach ($postModifiers as $postModifier) {
+                $this->output->writeln('<li>Post Modifier: <code>' . $postModifier . '</code></li>');
+            }
+            $this->output->writeln('</ul><table class="table"><tr><th>UID</th><th>Type</th><th>Hidden?</th><th>Slug</th><th>Redirect</th></tr>');
+        } else {
+            $this->output->writeln(sprintf('Site: %s (%s)', $this->site->getIdentifier(), (string)$this->site->getBase()));
+            $this->output->writeln('Configuration:');
+            $this->output->writeln('- Slug Format: ' . join(' ' . $fieldSeparator . ' ', $slugFormat));
+            foreach ($replacements as $char => $replace) {
+                $this->output->writeln(sprintf('- Replace "%s" with "%s"', $char, $replace));
+            }
+            foreach ($postModifiers as $postModifier) {
+                $this->output->writeln('- Post Modifier: ' . $postModifier);
+            }
+            $this->output->writeln('');
+        }
+
         // Start recursion
         $this->executeOnPageTree($rootPage);
+
+        if ($this->outputFormat === 'html') {
+            $this->output->writeln("</table></body></html>\n");
+        }
     }
 }
